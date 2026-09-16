@@ -8,6 +8,8 @@ candidate against Paraform, and replies in the same thread.
 from __future__ import annotations
 
 import logging
+import os
+import sys
 import time
 
 import anthropic
@@ -23,8 +25,13 @@ from .slack_io import collect_thread_context, is_gold_request, post_blocks, post
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("agent")
 
-settings = load_settings()
-app = App(token=settings.slack_bot_token)
+try:
+    settings = load_settings()
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise RuntimeError("Missing required environment variable: ANTHROPIC_API_KEY. Fill it in .env")
+    app = App(token=settings.slack_bot_token)
+except Exception as exc:  # startup problems should read as one line, not a traceback
+    sys.exit(f"\nStartup failed: {exc}\n")
 claude = anthropic.Anthropic()
 
 _recent: dict[str, float] = {}  # (channel, thread) -> last run; dedupes Slack retries

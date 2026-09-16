@@ -11,11 +11,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+_PLACEHOLDER_MARKERS = ("\u2026", "...", "PASTE_", "your-", "-here")
+
+
 def _env(name: str, default: str | None = None, required: bool = False) -> str:
-    value = os.environ.get(name, default)
+    value = (os.environ.get(name, default) or "").strip().strip('"').strip("'")
     if required and not value:
-        raise RuntimeError(f"Missing required environment variable: {name}")
-    return value or ""
+        raise RuntimeError(f"Missing required environment variable: {name}. Fill it in .env")
+    if required and any(m in value for m in _PLACEHOLDER_MARKERS):
+        raise RuntimeError(
+            f"{name} still looks like a placeholder ({value[:12]}...). "
+            "Paste the full value from Slack/Anthropic into .env with nothing abbreviated."
+        )
+    if any(ord(ch) > 127 for ch in value):
+        raise RuntimeError(f"{name} contains a non-ASCII character; re-paste it from the source.")
+    return value
 
 
 @dataclass(frozen=True)
