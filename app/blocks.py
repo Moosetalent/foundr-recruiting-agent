@@ -1,4 +1,9 @@
-"""Block Kit rendering for the match notification. Pure function: no I/O."""
+"""Block Kit rendering for the match notification. Pure function: no I/O.
+
+Layout is deliberately compact: one header, one line of candidate context,
+then per role a title line with the score and a small grey context line
+carrying the fit and the flag. Five roles fit on one screen.
+"""
 from __future__ import annotations
 
 from .models import CandidateProfile, MatchReport
@@ -14,55 +19,55 @@ def score_emoji(score: int) -> str:
     return "🔴"
 
 
-def _bullets(items: list[str], empty: str) -> str:
-    return "\n".join(f"• {i}" for i in items) if items else f"• {empty}"
+def _candidate_line(profile: CandidateProfile, name: str) -> str:
+    parts = [f"*{name or 'Unknown candidate'}*"]
+    role = profile.current_title
+    if role and profile.current_company:
+        role += f" @ {profile.current_company}"
+    if role:
+        parts.append(role)
+    if profile.years_experience > 0:
+        parts.append(f"{profile.years_experience:g} yrs")
+    loc = profile.location or "location not stated"
+    if profile.remote_preference not in ("unknown", ""):
+        loc += f", {profile.remote_preference}"
+    parts.append(loc)
+    return " · ".join(parts)
 
 
-def _experience_line(profile: CandidateProfile) -> str:
-    yrs = f"{profile.years_experience:g} yrs" if profile.years_experience > 0 else "n/a"
-    sen = profile.seniority if profile.seniority != "unknown" else ""
-    return " · ".join(p for p in (yrs, sen) if p)
+def _short(items: list[str], limit: int) -> str:
+    return " · ".join(i.strip().rstrip(".") for i in items[:limit] if i.strip())
 
 
 def build_match_blocks(profile: CandidateProfile, report: MatchReport, paraform_browse_url: str) -> list[dict]:
     blocks: list[dict] = [
-        {"type": "header", "text": {"type": "plain_text", "text": "🎯 Top Paraform Match Found", "emoji": True}},
-        {"type": "section", "fields": [
-            {"type": "mrkdwn", "text": f"*Name*\n{report.candidate_name or profile.name or 'Unknown'}"},
-            {"type": "mrkdwn", "text": f"*Current Role*\n{profile.current_title or 'n/a'}"
-                                        + (f" @ {profile.current_company}" if profile.current_company else "")},
-            {"type": "mrkdwn", "text": f"*Experience*\n{_experience_line(profile)}"},
-            {"type": "mrkdwn", "text": f"*Location*\n{profile.location or 'not stated'}"
-                                        + (f" ({profile.remote_preference})" if profile.remote_preference != 'unknown' else "")},
-        ]},
+        {"type": "header", "text": {"type": "plain_text", "text": "🎯 Top Paraform Matches", "emoji": True}},
+        {"type": "section", "text": {"type": "mrkdwn", "text": _candidate_line(profile, report.candidate_name or profile.name)}},
         {"type": "divider"},
     ]
 
     if not report.matches:
         blocks.append({"type": "section", "text": {"type": "mrkdwn",
-                       "text": f"*No strong match on the board right now.*\n{report.no_match_reason or ''}".strip()}})
+                       "text": f"*No strong match on the board right now.* {report.no_match_reason}".strip()}})
         blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": f"<{paraform_browse_url}|Open Paraform browse>"}]})
         return blocks
 
     for i, m in enumerate(report.matches, start=1):
         blocks.append({"type": "section", "text": {"type": "mrkdwn",
-                       "text": f"*{i}. <{m.job_url}|{m.job_title}>* — {m.company}\n{score_emoji(m.score)} *{m.score}% Match*"}})
-        blocks.append({"type": "section", "fields": [
-            {"type": "mrkdwn", "text": "*Why it's a fit*\n" + _bullets(m.why_fit, "no evidence captured")},
-            {"type": "mrkdwn", "text": "*Potential flags*\n" + _bullets(m.flags, "none identified")},
-        ]})
-        if i < len(report.matches):
-            blocks.append({"type": "divider"})
+                       "text": f"{score_emoji(m.score)} *{m.score}%*  *{i}. <{m.job_url}|{m.job_title}>* — {m.company}"}})
+        line = f"✅ {_short(m.why_fit, 2)}" if m.why_fit else "✅ fit not captured"
+        if m.flags:
+            line += f"\n⚠️ {_short(m.flags, 1)}"
+        blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": line[:2900]}]})
 
     top = report.matches[0]
-    blocks.append({"type": "divider"})
     blocks.append({"type": "actions", "elements": [{
         "type": "button", "style": "primary", "action_id": SUBMIT_ACTION_ID,
         "text": {"type": "plain_text", "text": "Submit Candidate to Paraform", "emoji": True},
         "url": top.job_url, "value": top.job_id,
     }]})
     blocks.append({"type": "context", "elements": [{"type": "mrkdwn",
-                   "text": "Scored on skills, seniority, location and domain. Compensation ignored by design."}]})
+                   "text": f"{len(report.matches)} of {report.considered} roles considered · scored on skills, seniority, location, domain · compensation ignored"}]})
     return blocks
 
 

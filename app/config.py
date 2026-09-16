@@ -77,5 +77,5 @@ def load_settings() -> Settings:
         paraform_cache_ttl_minutes=int(_env("PARAFORM_CACHE_TTL_MINUTES", "30")),
         paraform_max_detail_pages=int(_env("PARAFORM_MAX_DETAIL_PAGES", "0")),
         max_jobs_to_llm=int(_env("MAX_JOBS_TO_LLM", "60")),
-        top_n_matches=int(_env("TOP_N_MATCHES", "2")),
+        top_n_matches=int(_env("TOP_N_MATCHES", "5")),
     )

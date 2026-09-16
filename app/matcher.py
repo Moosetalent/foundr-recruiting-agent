@@ -36,8 +36,9 @@ Scoring rubric (0-100):
 - Compensation is NEVER a factor. Do not mention pay, equity or budget anywhere in the output.
 
 Return only roles with a score of 55 or more, best first, at most the number requested.
-why_fit bullets must cite concrete evidence from the profile (a company, a project, a number).
-flags must be concrete gaps a recruiter would need to check before submitting."""
+Be terse: why_fit is one or two fragments under 12 words each, citing concrete evidence from the profile
+(a company, a project, a number). flags is at most one fragment under 12 words naming the gap a recruiter
+must check before submitting. No full sentences, no trailing periods."""
 
 _STOP = {"the", "and", "or", "of", "a", "an", "in", "for", "to", "with", "on", "at"}
 
@@ -126,5 +127,6 @@ def match_candidate(
     report.matches = [m for m in report.matches if m.job_id in valid_ids][: settings.top_n_matches]
     for m in report.matches:  # never trust the model with URLs; take them from the catalogue
         m.job_url = valid_ids[m.job_id].url
+    report.considered = len(jobs)
     log.info("match: cache_read=%s input=%s", getattr(response.usage, "cache_read_input_tokens", None), response.usage.input_tokens)
     return report

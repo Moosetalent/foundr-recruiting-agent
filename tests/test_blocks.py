@@ -25,11 +25,12 @@ def test_blocks_shape():
     profile, report = _sample()
     blocks = build_match_blocks(profile, report, "https://www.paraform.com/browse")
     assert blocks[0]["type"] == "header"
-    assert blocks[0]["text"]["text"] == "🎯 Top Paraform Match Found"
+    assert blocks[0]["text"]["text"] == "🎯 Top Paraform Matches"
     assert blocks[-2]["type"] == "actions"
     assert blocks[-2]["elements"][0]["text"]["text"] == "Submit Candidate to Paraform"
     assert blocks[-2]["elements"][0]["url"] == "https://www.paraform.com/x/a"
-    assert sum(1 for b in blocks if b["type"] == "divider") >= 2
+    assert sum(1 for b in blocks if b["type"] == "context") >= 3
+    assert len(blocks) <= 50
     assert "94% Match" in fallback_text(report) or "94%" in fallback_text(report)
 
 

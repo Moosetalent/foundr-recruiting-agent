@@ -78,11 +78,12 @@ class JobMatch(StrictOut):
     company: str
     job_url: str
     score: int = Field(description="0-100 fit on skills, seniority, location and domain. Compensation is never a factor.")
-    why_fit: list[str] = Field(description="2-4 concrete overlaps, each citing evidence from the profile.")
-    flags: list[str] = Field(description="0-3 concrete gaps or risks. Empty list if none.")
+    why_fit: list[str] = Field(description="1-2 concrete overlaps, each under 12 words, citing evidence from the profile.")
+    flags: list[str] = Field(description="0-1 concrete gap or risk, under 12 words. Empty list if none.")
 
 
 class MatchReport(StrictOut):
     candidate_name: str
     matches: list[JobMatch] = Field(description="Best matches first. Return fewer than requested rather than pad with weak fits.")
     no_match_reason: str = Field(default="", description="Only when matches is empty: why nothing on the board fits. Empty otherwise.")
+    considered: int = Field(default=0, description="Filled in by the caller: how many roles were on the board. Always return 0.")
