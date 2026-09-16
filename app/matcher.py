@@ -35,7 +35,10 @@ Scoring rubric (0-100):
   An onsite/hybrid role in another region with no relocation signal caps the score at 60.
 - Compensation is NEVER a factor. Do not mention pay, equity or budget anywhere in the output.
 
-Return only roles with a score of 55 or more, best first, at most the number requested.
+Return roles scoring 55 or more, best first, up to the number requested. Fill the requested count whenever
+that many roles clear 55; on a board of several hundred roles that is the normal case, and a list shorter than
+requested should mean the board genuinely lacks fits, not that you stopped early. Scores must be honest and
+distinct: do not inflate weaker roles to fill the list, but do include solid 60-75 fits.
 Be terse: why_fit is one or two fragments under 12 words each, citing concrete evidence from the profile
 (a company, a project, a number). flags is at most one fragment under 12 words naming the gap a recruiter
 must check before submitting. No full sentences, no trailing periods."""
@@ -115,7 +118,7 @@ def match_candidate(
              "cache_control": {"type": "ephemeral"}},
         ],
         messages=[{"role": "user", "content": (
-            f"Return at most {settings.top_n_matches} matches.\n\nCandidate profile (JSON):\n"
+            f"Return up to {settings.top_n_matches} matches; fill all {settings.top_n_matches} if that many score 55+.\n\nCandidate profile (JSON):\n"
             + profile.model_dump_json()
         )}],
         output_format=MatchReport,
