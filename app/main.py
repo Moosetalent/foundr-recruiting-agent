@@ -85,9 +85,10 @@ def handle_mention(event, client):
     except anthropic.APIStatusError as exc:
         log.exception("anthropic error")
         post_error(client, channel, thread_ts, f"Claude API error ({exc.status_code}): {getattr(exc, 'message', '')[:200]}")
-    except Exception:
+    except Exception as exc:
         log.exception("unhandled error in gold handler")
-        post_error(client, channel, thread_ts, "Something went wrong while matching. Check the agent logs.")
+        post_error(client, channel, thread_ts,
+                   f"Something went wrong while matching: `{type(exc).__name__}: {str(exc)[:300]}`")
 
 
 @app.action(bk.SUBMIT_ACTION_ID)
