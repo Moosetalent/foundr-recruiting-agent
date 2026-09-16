@@ -23,8 +23,12 @@ Then `/invite @Gold` in `#candidates`. The channel id is already in `.env.exampl
 
 ### Local run (fastest way to see it work)
 
+Requires **Python 3.10 or newer**. macOS ships 3.9, which will not work: install 3.12 from
+https://www.python.org/downloads/macos/ and use `python3.12` in the first line below.
+
 ```bash
-python -m venv .venv && . .venv/bin/activate
+python3.12 -m venv .venv && . .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt && playwright install chromium
 cp .env.example .env              # paste the three tokens from steps 1–2
 python scripts/paraform_login.py  # step 3
