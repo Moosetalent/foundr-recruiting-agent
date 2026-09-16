@@ -50,7 +50,7 @@ def _tokens(*parts: str) -> set[str]:
 
 
 def _location_compatible(profile: CandidateProfile, job: ParaformJob) -> bool:
-    if job.remote_policy == "remote" or profile.open_to_relocation:
+    if job.remote_policy == "remote" or profile.open_to_relocation == "yes":
         return True
     if not profile.location or not job.location or job.remote_policy == "unknown":
         return True  # unknown is not a reason to drop before the model sees it
@@ -59,7 +59,7 @@ def _location_compatible(profile: CandidateProfile, job: ParaformJob) -> bool:
 
 def prefilter_jobs(profile: CandidateProfile, jobs: list[ParaformJob], cap: int) -> list[ParaformJob]:
     """Cheap lexical scoring so the LLM sees the most plausible `cap` roles."""
-    cand = _tokens(*profile.role_families, *profile.core_skills, *profile.secondary_skills, profile.current_title or "")
+    cand = _tokens(*profile.role_families, *profile.core_skills, *profile.secondary_skills, profile.current_title)
     scored: list[tuple[float, ParaformJob]] = []
     for job in jobs:
         jt = _tokens(job.title, job.role_family, *job.required_skills, *job.nice_to_have_skills)
@@ -74,7 +74,7 @@ def prefilter_jobs(profile: CandidateProfile, jobs: list[ParaformJob], cap: int)
 
 def _catalogue_block(jobs: list[ParaformJob]) -> str:
     slim = [
-        {k: v for k, v in j.model_dump().items() if v not in ("", None, [], "unknown")}
+        {k: v for k, v in j.model_dump().items() if v not in ("", 0, [], "unknown")}
         for j in jobs
     ]
     return json.dumps(slim, ensure_ascii=False, sort_keys=True)  # sort_keys keeps the cache prefix stable

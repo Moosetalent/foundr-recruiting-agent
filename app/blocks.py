@@ -19,7 +19,7 @@ def _bullets(items: list[str], empty: str) -> str:
 
 
 def _experience_line(profile: CandidateProfile) -> str:
-    yrs = f"{profile.years_experience:g} yrs" if profile.years_experience is not None else "n/a"
+    yrs = f"{profile.years_experience:g} yrs" if profile.years_experience > 0 else "n/a"
     sen = profile.seniority if profile.seniority != "unknown" else ""
     return " · ".join(p for p in (yrs, sen) if p)
 

@@ -84,7 +84,7 @@ def handle_mention(event, client):
         post_error(client, channel, thread_ts, "Claude is rate-limited right now. Try again in a minute.")
     except anthropic.APIStatusError as exc:
         log.exception("anthropic error")
-        post_error(client, channel, thread_ts, f"Claude API error ({exc.status_code}). Try again shortly.")
+        post_error(client, channel, thread_ts, f"Claude API error ({exc.status_code}): {getattr(exc, 'message', '')[:200]}")
     except Exception:
         log.exception("unhandled error in gold handler")
         post_error(client, channel, thread_ts, "Something went wrong while matching. Check the agent logs.")
