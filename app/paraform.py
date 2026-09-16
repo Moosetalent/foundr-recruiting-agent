@@ -167,7 +167,7 @@ def _harvest_raw_cards(page: Page, browse_url: str) -> list[dict]:
 
 
 PAGE_READY_JS = (
-    "document.querySelectorAll('a[href]').length > 10"
+    "document.querySelectorAll('a[href*=\"/role/\"], a[href*=\"/company/\"]').length >= 10"
     " || document.body.innerText.includes('Continue with Google')"
     " || document.body.innerText.includes('Continue with Email')"
 )
@@ -184,8 +184,8 @@ def _open(page: Page, url: str, timeout_ms: int) -> None:
     try:
         page.wait_for_function(PAGE_READY_JS, timeout=timeout_ms)
     except PlaywrightTimeout:
-        log.warning("page did not render links within %sms: %s", timeout_ms, url)
-    page.wait_for_timeout(2_000)
+        log.warning("page did not render a role list within %sms: %s", timeout_ms, url)
+    page.wait_for_timeout(3_000)
 
 
 def _fetch_detail_text(page: Page, url: str) -> str:
