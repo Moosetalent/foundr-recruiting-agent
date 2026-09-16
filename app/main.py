@@ -101,4 +101,17 @@ def handle_submit(ack, body, logger):
 
 
 if __name__ == "__main__":
-    SocketModeHandler(app, settings.slack_app_token).start()
+    from slack_sdk.errors import SlackApiError
+
+    try:
+        handler = SocketModeHandler(app, settings.slack_app_token)
+        handler.connect()
+    except SlackApiError as exc:
+        sys.exit(
+            "\nStartup failed: Slack rejected SLACK_APP_TOKEN "
+            f"({exc.response.get('error')}). Generate a new app-level token under "
+            "Basic Information -> App-Level Tokens with scope connections:write and paste it into .env\n"
+        )
+    log.info("Gold is connected to Slack via Socket Mode. Tag @Gold gold in a candidate thread.")
+    import threading
+    threading.Event().wait()
