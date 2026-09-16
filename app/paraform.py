@@ -82,16 +82,43 @@ def _looks_like_login(page: Page) -> bool:
     return any(m in title for m in LOGIN_MARKERS) or any(m in body for m in LOGIN_MARKERS[1:])
 
 
-def _scroll_to_bottom(page: Page, max_rounds: int = 25) -> None:
-    """Browse pages tend to lazy-load; scroll until the height stops growing."""
+SCROLL_JS = """() => {
+  // Scroll the window and every scrollable container (the job list is often
+  // an inner overflow:auto panel, not the document). Return total link count.
+  window.scrollTo(0, document.body.scrollHeight);
+  for (const el of document.querySelectorAll('*')) {
+    const st = getComputedStyle(el);
+    if ((st.overflowY === 'auto' || st.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 50) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+  return document.querySelectorAll('a[href]').length;
+}"""
+
+LOAD_MORE_JS = """() => {
+  const btn = Array.from(document.querySelectorAll('button, a')).find(b =>
+    /load more|show more|see more|next/i.test((b.innerText || '').trim()) && !b.disabled);
+  if (btn) { btn.click(); return true; }
+  return false;
+}"""
+
+
+def _scroll_to_bottom(page: Page, max_rounds: int = 40) -> None:
+    """Browse pages lazy-load; scroll window and inner panels until the link
+    count stops growing, clicking any 'load more' style button on the way."""
+    stable = 0
     last = -1
     for _ in range(max_rounds):
-        height = page.evaluate("document.body.scrollHeight")
-        if height == last:
-            break
-        last = height
-        page.mouse.wheel(0, height)
-        page.wait_for_timeout(600)
+        count = page.evaluate(SCROLL_JS)
+        clicked = page.evaluate(LOAD_MORE_JS)
+        page.wait_for_timeout(900 if clicked else 600)
+        if count == last:
+            stable += 1
+            if stable >= 3:
+                break
+        else:
+            stable = 0
+        last = count
 
 
 def _harvest_raw_cards(page: Page, browse_url: str) -> list[dict]:
@@ -103,27 +130,40 @@ def _harvest_raw_cards(page: Page, browse_url: str) -> list[dict]:
     """
     origin = re.match(r"https?://[^/]+", browse_url).group(0)
     raw = page.evaluate(
-        """() => Array.from(document.querySelectorAll('a[href]')).map(a => ({
-              text: (a.innerText || '').trim(),
-              href: a.getAttribute('href') || ''
-        }))"""
+        """() => Array.from(document.querySelectorAll('a[href]')).map(a => {
+              // the card is usually the closest sizeable ancestor, not the anchor itself
+              let el = a, hops = 0;
+              while (el.parentElement && hops < 4 && (el.innerText || '').trim().length < 80) { el = el.parentElement; hops++; }
+              return { text: (el.innerText || '').trim().slice(0, 1500),
+                       anchor_text: (a.innerText || '').trim().slice(0, 200),
+                       href: a.getAttribute('href') || '' };
+        })"""
     )
+    job_like = re.compile(r"/(role|roles|job|jobs|company|companies)/", re.IGNORECASE)
     cards: list[dict] = []
     seen: set[str] = set()
     for item in raw:
         text, href = item["text"], item["href"]
-        if len(text) < 25 or href.startswith(("mailto:", "#", "javascript:")):
+        if href.startswith(("mailto:", "#", "javascript:")):
             continue
         if href.startswith("/"):
             href = origin + href
         if not href.startswith(origin):
             continue
-        key = href.split("?")[0]
-        if key in seen:
+        key = href.split("?")[0].rstrip("/")
+        is_job = bool(job_like.search(key))
+        if not is_job and len(text) < 25:
+            continue
+        if not is_job and len(text) > 600:  # nav/footer blobs, not a card
+            continue
+        if key in seen or key == browse_url.rstrip("/"):
             continue
         seen.add(key)
-        cards.append({"text": text, "href": key})
-    return cards
+        cards.append({"text": text, "href": key, "job_link": is_job})
+    job_cards = [c for c in cards if c["job_link"]]
+    log.info("paraform: %d anchors on page, %d unique on-site, %d look like role/company links",
+             len(raw), len(cards), len(job_cards))
+    return job_cards or cards
 
 
 PAGE_READY_JS = (
@@ -176,6 +216,8 @@ def scrape_browse_page(settings: Settings) -> list[dict]:
                 raise ParaformAuthError("Paraform session expired: browse page rendered the login form.")
             _scroll_to_bottom(page)
             cards = _harvest_raw_cards(page, settings.paraform_browse_url)
+            debug = Path(settings.paraform_cache_path).with_name("paraform_cards_debug.json")
+            debug.write_text(json.dumps({"url": page.url, "title": page.title(), "cards": cards}, indent=1))
             if not cards:
                 raise ParaformScrapeError("No job cards found on the browse page (DOM may have changed).")
             for card in cards[: settings.paraform_max_detail_pages]:
