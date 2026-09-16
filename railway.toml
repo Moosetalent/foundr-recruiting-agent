@@ -1,0 +1,10 @@
+# Railway config. Create a project from this GitHub repo, add the variables from .env.example
+# (plus PARAFORM_STORAGE_STATE_B64 = base64 of paraform_state.json), and deploy.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "python -m app.main"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

@@ -1,0 +1,21 @@
+# Fly.io config. One always-on machine; no public HTTP (Socket Mode outbound only).
+#   fly launch --no-deploy --copy-config --name foundr-gold-agent
+#   fly secrets set SLACK_BOT_TOKEN=... SLACK_APP_TOKEN=... ANTHROPIC_API_KEY=... CANDIDATES_CHANNEL_ID=...
+#   fly secrets set PARAFORM_STORAGE_STATE_B64="$(base64 -w0 paraform_state.json)"
+#   fly deploy
+app = "foundr-gold-agent"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PARAFORM_STORAGE_STATE = "/data/paraform_state.json"
+  PARAFORM_CACHE_PATH = "/data/paraform_jobs_cache.json"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"
+
+[processes]
+  agent = "python -m app.main"
