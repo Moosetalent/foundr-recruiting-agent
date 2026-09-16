@@ -172,15 +172,16 @@ def strip_compensation(text: str) -> str:
 def normalise_cards(cards: list[dict], client: anthropic.Anthropic) -> list[ParaformJob]:
     """Let a cheap model turn raw card text into ParaformJob records.
 
-    Haiku is deliberate: this is high-volume extraction, not judgment. The
-    matching call downstream uses the configured (Opus-class) model.
+    Sonnet is deliberate: this is high-volume extraction, not judgment, and
+    Haiku 4.5 enforces tighter structured-output schema limits. The matching
+    call downstream uses the configured (Opus-class) model.
     """
     lines = []
     for c in cards:
         blob = strip_compensation(c["text"] + ("\n" + c.get("detail", "") if c.get("detail") else ""))
         lines.append(f"URL: {c['href']}\n{blob}\n---")
     response = client.messages.parse(
-        model="claude-haiku-4-5",
+        model="claude-sonnet-5",
         max_tokens=16000,
         system=NORMALISE_SYSTEM,
         messages=[{"role": "user", "content": "\n".join(lines)}],

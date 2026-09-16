@@ -3,20 +3,34 @@
 These double as the structured-output schemas handed to Claude, so field
 descriptions are written for the model as much as for humans.
 
-Keep them flat and free of `X | None` unions: every optional becomes an
-`anyOf` in the JSON schema, and enough of them makes the API reject the
-schema as "too complex". Unknowns are expressed as "", 0 or "unknown".
+Two rules keep the API's structured-output compiler happy:
+- no `X | None` unions (each becomes an anyOf); unknowns are "", 0 or "unknown"
+- every property is marked required in the JSON schema. The API allows at most
+  12 optional properties and rejects the schema as "too complex" beyond that,
+  and Pydantic marks any field with a default as optional. `StrictOut` below
+  forces `required` to cover every property while keeping Python defaults.
 """
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 Seniority = Literal["junior", "mid", "senior", "staff", "lead", "exec", "unknown"]
 
 
-class ParaformJob(BaseModel):
+def _require_everything(schema: dict[str, Any], model: type[BaseModel]) -> None:
+    schema["required"] = list(schema.get("properties", {}))
+    schema["additionalProperties"] = False
+
+
+class StrictOut(BaseModel):
+    """Base for models returned by Claude: all properties required in the schema."""
+
+    model_config = ConfigDict(json_schema_extra=_require_everything)
+
+
+class ParaformJob(StrictOut):
     """One role from the Paraform browse page. Compensation is deliberately absent."""
 
     job_id: str = Field(description="Stable id: the Paraform job URL slug or a hash of title+company.")
@@ -34,11 +48,11 @@ class ParaformJob(BaseModel):
     company_stage: str = Field(default="", description="e.g. 'Seed', 'Series B', if visible. Empty otherwise.")
 
 
-class ParaformJobList(BaseModel):
+class ParaformJobList(StrictOut):
     jobs: list[ParaformJob]
 
 
-class CandidateProfile(BaseModel):
+class CandidateProfile(StrictOut):
     """What the matcher needs to know about the candidate. Nothing about pay."""
 
     name: str = Field(default="", description="Full name, or empty if not stated.")
@@ -58,7 +72,7 @@ class CandidateProfile(BaseModel):
     source_gaps: list[str] = Field(default_factory=list, description="Things the profile did not tell us that would change the match, e.g. 'no location stated'.")
 
 
-class JobMatch(BaseModel):
+class JobMatch(StrictOut):
     job_id: str = Field(description="Must be one of the job_id values from the catalogue.")
     job_title: str
     company: str
@@ -68,7 +82,7 @@ class JobMatch(BaseModel):
     flags: list[str] = Field(description="0-3 concrete gaps or risks. Empty list if none.")
 
 
-class MatchReport(BaseModel):
+class MatchReport(StrictOut):
     candidate_name: str
     matches: list[JobMatch] = Field(description="Best matches first. Return fewer than requested rather than pad with weak fits.")
     no_match_reason: str = Field(default="", description="Only when matches is empty: why nothing on the board fits. Empty otherwise.")
