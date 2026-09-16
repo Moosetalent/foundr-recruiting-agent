@@ -126,9 +126,31 @@ def _harvest_raw_cards(page: Page, browse_url: str) -> list[dict]:
     return cards
 
 
+PAGE_READY_JS = (
+    "document.querySelectorAll('a[href]').length > 10"
+    " || document.body.innerText.includes('Continue with Google')"
+    " || document.body.innerText.includes('Continue with Email')"
+)
+
+
+def _open(page: Page, url: str, timeout_ms: int) -> None:
+    """Load a page without waiting for network idle.
+
+    Paraform keeps long-lived connections open (live updates, analytics), so
+    'networkidle' never fires. Wait for the document, then for either the
+    login form or a rendered list of links, then a short settle.
+    """
+    page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+    try:
+        page.wait_for_function(PAGE_READY_JS, timeout=timeout_ms)
+    except PlaywrightTimeout:
+        log.warning("page did not render links within %sms: %s", timeout_ms, url)
+    page.wait_for_timeout(2_000)
+
+
 def _fetch_detail_text(page: Page, url: str) -> str:
     try:
-        page.goto(url, wait_until="networkidle", timeout=20_000)
+        _open(page, url, 20_000)
         return page.inner_text("main") if page.locator("main").count() else page.inner_text("body")
     except PlaywrightTimeout:
         log.warning("detail page timed out: %s", url)
@@ -146,7 +168,10 @@ def scrape_browse_page(settings: Settings) -> list[dict]:
         context = browser.new_context(storage_state=str(state))
         page = context.new_page()
         try:
-            page.goto(settings.paraform_browse_url, wait_until="networkidle", timeout=45_000)
+            try:
+                _open(page, settings.paraform_browse_url, 45_000)
+            except PlaywrightTimeout as exc:
+                raise ParaformScrapeError(f"Paraform browse page did not load within 45s: {exc}") from exc
             if _looks_like_login(page):
                 raise ParaformAuthError("Paraform session expired: browse page rendered the login form.")
             _scroll_to_bottom(page)
